@@ -7,3 +7,13 @@ doing_R_best Code of Conduct
 5. *Come to class (unless you really can’t)*. We want to utilize our class time to complete as much of this project as possible, so it is essential that we all show up unless decided otherwise.
 6. *Tell your group mates if you run into a problem you can’t solve on your own*. There is no shame in asking for help. Your teammates might know something you don't.  
 7. *Respect each other's ideas*. Everyone's opinion is valid and everyone's opinions and ideas must be considered before decisions are made. 
+
+# Meeting Frequency
+Every week, in both classes as needed.
+If extra work needs to be done, meetings outside of class time will be scheduled to meet everyone's needs.
+
+#PR approval policy
+All members must "thumbs up" the pull request, indicating that they agree with the information 
+
+#Roll rotation 
+We have decided to rotate between the roles of facilitator, recroder, and organizer during each meeting so that each person has a change to use and learn different teamwork and leadership skills throughout the project. 
