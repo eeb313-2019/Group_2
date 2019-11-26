@@ -1,0 +1,258 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r}
+library(readr)
+library(tidyverse)
+#install.packages('data.table')
+library(data.table)
+insect_adundance_subset <- read_delim('~/Desktop/insects_CR_first200000.csv', delim='\t')
+```
+
+```{r}
+insecta_only_abd <- insect_adundance_subset %>% 
+  filter(class == "Insecta", !is.na(family), !is.na(order))
+
+abd <- insecta_only_abd %>%
+  group_by(year, family, order) %>%
+  tally()
+
+ggplot(abd) +
+  geom_point(aes(x=year, y = n, colour = order), position = "jitter", alpha = 0.5) + facet_wrap(~order)
+
+#Coleoptera, Diptera, Hemiptera, Hymenoptera, Lepidoptera are the most abundant orders- possibly Orthoptera
+
+#how was the data sampled? difference in sampling may effect how we saw abundance
+#find out how they sampled data
+
+#number of genus each year
+
+genperyr <- insecta_only_abd %>%
+  group_by(year, order) %>%
+  summarize(num_gen_obs = length(unique(genus)))
+
+ggplot(genperyr) +
+  geom_line(aes(x = year, y = num_gen_obs, colour = order)) + facet_wrap(~order)
+```
+
+```{r}
+species_na_removed <- insect_adundance_subset %>%
+  filter(class == "Insecta", !is.na(species))
+
+species_richness <- species_na_removed %>%
+  group_by(species, locality, stateProvince, elevation, year) %>%
+  tally()
+
+species_richness_graph_data <- species_richness %>%
+  group_by(locality, stateProvince, elevation, year) %>%
+  summarize(number_species = length(unique(species)))
+
+ggplot(species_richness_graph_data) +
+  geom_point(aes(x = elevation, y = number_species, colour = year)) + facet_wrap(~stateProvince, scales='free') 
+```
+
+```{r}
+library(lme4)
+species_richness_model_one <- lmer(number_species~elevation + year +(1|stateProvince), data=species_richness_graph_data)
+
+
+species_richness_model_three <- lmer(number_species~elevation*year +(1|stateProvince), data=species_richness_graph_data)
+
+summary(species_richness_model_one)
+```
+
+
+```{r}
+anova(species_richness_model_one)
+```
+
+```{r}
+#install.packages('ggeffects')
+library(ggeffects)
+
+pred_model_one <- ggpredict(species_richness_model_one, terms=c('elevation'))
+
+
+ggplot(pred_model_one)+ geom_point(data= species_richness_graph_data, aes(x = elevation, y = number_species, colour = year))+ geom_line(aes(x=x, y=predicted)) + facet_wrap(~stateProvince, scales='free') 
+```
+
+```{r}
+ggpredict(species_richness_model_one, terms=c('elevation','stateProvince'), type='re') %>% 
+  plot() 
+```
+
+Another way to visualise mixed model results, if you are interested in showing the variation among levels of your random effects, is to plot the departure from the overall model estimate for intercepts - and slopes, if you have a random slope model:
+```{r}
+#install.packages('sjPlot')
+library(sjPlot)
+
+re_model_one<- plot_model(species_richness_model_one, type='re', show.values=TRUE)
+
+re_model_one
+```
+
+Careful here! The values you see are NOT actual values, but rather the difference between the general intercept or slope value found in your model summary and the estimate for this specific level of random effect. 
+
+```{r}
+species_richness_model_two <- lmer(number_species~elevation + year +(1|stateProvince/locality), data=species_richness_graph_data)
+
+summary(species_richness_model_two)
+```
+
+```{r}
+anova(species_richness_model_two)
+```
+
+```{r}
+pred_model_two <- ggpredict(species_richness_model_two, terms=c('elevation'))
+
+
+ggplot(pred_model_two)+ geom_point(data= species_richness_graph_data, aes(x = elevation, y = number_species, colour = year))+ geom_line(aes(x=x, y=predicted)) + facet_wrap(~stateProvince, scales='free')
+```
+
+```{r}
+ggpredict(species_richness_model_two, terms=c('elevation','stateProvince'), type='re') %>% 
+  plot()
+```
+
+```{r}
+re_model_two<- plot_model(species_richness_model_two, type='re', show.values=TRUE)
+
+re_model_two
+```
+
+Table with both models 
+
+```{r}
+install.packages("stargazer")
+library(stargazer)
+class(species_richness_model_two) <- 'lmerMod'
+class(species_richness_model_one) <- 'lmerMod'
+
+stargazer(species_richness_model_one, species_richness_model_two, type='text', digits=3, star.cutoffs=c(0.05, 0.01, 0.001))
+
+getwd()
+```
+
+The number you see not in parentheses is called a regression coefficient. The regression coefficient provides the expected change in the dependent variable for a one-unit increase in the independent variable.
+
+A negative coefficient indicates a negative relationship. As the independent variable increases, the dependent variable decreases. A negative relationship also indicates that the dependent variable increases as the independent variable decreases.
+
+The number in parentheses is called a standard error. 
+
+However, the standard error is not a quantity of interest by itself. It depends on the relationship with the regression coefficient.
+
+Asterisks in a regression table indicate the level of the statistical significance of a regression coefficient. The logic here is built off the principle of random sampling.
+
+the constant also known as the y intercept, is simply the value at which the fitted line crosses the y-axis. 
+
+
+
+
+LEFT-JOIN BY LOCALITY 
+species, order, elv 
+
+
+Group by locality, then calculate mean elevation
+
+total observations by order,  year, and locality. 
+```{r}
+species_na_removed <- insect_adundance_subset %>%
+  filter(class == "Insecta", !is.na(species))
+
+species_richness_mean_elevation <- species_na_removed %>%
+  filter(!is.na(elevation)) %>%
+  group_by(locality) %>%
+  summarise(mean_elevation = mean(elevation))
+
+species_richness_mean_elevation
+```
+
+```{r}
+species_na_removed <- insect_adundance_subset %>%
+  filter(class == "Insecta", !is.na(species))
+
+species_total_observations <- species_na_removed %>%
+  group_by(order, year, locality) %>%
+  summarise(number_species = length(unique(species)))
+                            
+  
+
+species_total_observations
+
+species_richness_order <- left_join(species_richness_mean_elevation, species_total_observations)
+```
+
+```{r}
+species_richness_order_model <- lmer(number_species~mean_elevation*order+ year +(1|locality), data=species_richness_order)
+
+summary(species_richness_order_model)
+
+stargazer(species_richness
+```
+
+species_richness_model_two <- lmer(number_species~elevation + year +(1|stateProvince/locality), data=species_richness_graph_data)
+
+summary(species_richness_model_two)
+
+```{r}
+
+install.packages("stats")
+library(stats)
+
+anova(species_richness_order_model)
+```
+
+```{r}
+ggplot(species_richness_order) +
+  geom_point(aes(x = mean_elevation, y = number_species, colour = year)) + facet_grid(~order, scales='free') 
+
+
+```
+
+```{r}
+pred_model_three <- ggpredict(species_richness_order_model, terms = c("mean_elevation"))
+
+
+
+
+ggplot(pred_model_three)+ geom_point(data= species_richness_order, aes(x = mean_elevation, y = number_species, colour = year))+ geom_line(aes(x=x, y=predicted)) + facet_wrap(~order, scales='free')
+```
+
+
+```{r}
+# keep 
+
+species_na_removed <- insect_adundance_subset %>%
+  filter(class == "Insecta", !is.na(species))
+
+species_richness_order <- species_na_removed %>%
+  group_by(species, locality, stateProvince, year, order) %>%
+  tally()
+View(species_richness_order)
+  
+species_richness_order_graph_data <- species_richness_order %>%
+  group_by(species, locality, stateProvince, elevation, year, order) %>%
+  summarize(number_species = length(unique(species)))
+  
+
+ggplot(species_richness_order_graph_data) +
+  geom_point(aes(x = elevation, y = number_species, colour = year)) + facet_grid(stateProvince~order, scales='free') 
+```
+
+```{r}
+
+# didn't really work - James helped 
+species_richness_order_model_one <- lm(number_species~elevation + year, data=species_richness_order_graph_data)
+range(species_richness_order_graph_data$number_species, na.rm = TRUE)
+summary(species_richness_order_model_one)
+anova(species_richness_order_model_one)
+head(species_richness_order_graph_data)
+names(species_richness_order_graph_data)
+```
+
+
